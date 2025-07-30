@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Stroop Task Experiment</title>
+
+    <!-- Load jsPsych library from CDN -->
+    <script src="https://unpkg.com/jspsych@7.3.4"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <link
+      href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Load Tailwind CSS for styling the results page -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      /* Custom styles for the experiment */
+      body {
+        background-color: #f8fafc; /* A light gray background */
+        font-family: "Inter", sans-serif;
+      }
+      .jspsych-display-element {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-size: 1.25rem; /* Larger base font size */
+      }
+      /* Style for the word stimulus */
+      .stroop-stimulus {
+        font-size: 4rem; /* Larger text for the Stroop word */
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      /* Style for the fixation cross */
+      .fixation-cross {
+        font-size: 4rem;
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body></body>
+  <script>
+    // Initialize jsPsych
+    const jsPsych = initJsPsych({
+      // on_finish callback is now used to display a structured data table
+      on_finish: function () {
+        // Clear the display
+        document.body.innerHTML = "";
+
+        // Get all data as an array of objects
+        const results = jsPsych.data.get().trials;
+
+        // Create a container for the final results page
+        const container = document.createElement("div");
+        container.className =
+          "container mx-auto p-4 sm:p-8 bg-white rounded-xl shadow-lg mt-10";
+        document.body.appendChild(container);
+
+        // Add a title
+        const title = document.createElement("h1");
+        title.className = "text-3xl font-bold text-gray-800 mb-6 text-center";
+        title.textContent = "Hasil Eksperimen Lengkap";
+        container.appendChild(title);
+
+        // Create the table element
+        const table = document.createElement("table");
+        table.className = "min-w-full divide-y divide-gray-200";
+
+        // Create table header
+        const thead = document.createElement("thead");
+        thead.className = "bg-gray-50";
+        const headerRow = document.createElement("tr");
+        const headers = [
+          "Jenis Trial",
+          "Kondisi",
+          "Teks Stimulus",
+          "Warna Stimulus",
+          "Tombol Respon",
+          "Benar/Salah",
+          "Waktu Reaksi (ms)",
+        ];
+        headers.forEach((headerText) => {
+          const th = document.createElement("th");
+          th.scope = "col";
+          th.className =
+            "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
+          th.textContent = headerText;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Create table body
+        const tbody = document.createElement("tbody");
+        tbody.className = "bg-white divide-y divide-gray-200";
+
+        results.forEach((trial) => {
+          // We only want to show rows with actual response data
+          if (trial.task === "response") {
+            const row = document.createElement("tr");
+
+            // Define the data for each cell
+            const cells = [
+              trial.task,
+              trial.condition,
+              trial.text,
+              trial.color,
+              trial.response,
+              trial.correct ? "Benar" : "Salah",
+              trial.rt ? Math.round(trial.rt) : "N/A",
+            ];
+
+            cells.forEach((cellData) => {
+              const td = document.createElement("td");
+              td.className =
+                "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
+              td.textContent = cellData;
+              row.appendChild(td);
+            });
+
+            // Add color coding for correctness
+            if (trial.correct === false) {
+              row.classList.add("bg-red-50");
+            } else {
+              row.classList.add("bg-green-50");
+            }
+
+            tbody.appendChild(row);
+          }
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+      },
+    });
+
+    // Create the main experiment timeline
+    let timeline = [];
+
+    // Define welcome message trial
+    const welcome = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+            <div class="max-w-2xl text-center">
+                <h1 class="text-3xl font-bold mb-4">Selamat Datang di Eksperimen Stroop</h1>
+                <p>Tekan tombol apa saja untuk memulai.</p>
+            </div>
+        `,
+    };
+    timeline.push(welcome);
+
+    // Define instructions trial
+    const instructions = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: `
+            <div class="max-w-2xl text-left leading-relaxed">
+                <p class="font-bold text-xl mb-4">Instruksi:</p>
+                <p class="mb-3">Dalam percobaan ini, sebuah kata akan muncul di tengah layar.</p>
+                <p class="mb-3">Tugas Anda adalah menyebutkan <strong>WARNA TINTA</strong> kata tersebut, bukan kata yang tertulis. Responlah secepat dan seakurat mungkin.</p>
+                <p class="mb-4">Gunakan tombol berikut untuk merespon:</p>
+                <ul class="list-disc list-inside mb-6 space-y-2">
+                    <li>Tekan <strong style="color: red;">R</strong> untuk warna <span style="color: red; font-weight: bold;">MERAH</span></li>
+                    <li>Tekan <strong style="color: green;">G</strong> untuk warna <span style="color: green; font-weight: bold;">HIJAU</span></li>
+                    <li>Tekan <strong style="color: blue;">B</strong> untuk warna <span style="color: blue; font-weight: bold;">BIRU</span></li>
+                    <li>Tekan <strong style="color: #FBBF24;">Y</strong> untuk warna <span style="color: #FBBF24; font-weight: bold;">KUNING</span></li>
+                </ul>
+                <p class="font-bold mb-2">Contoh:</p>
+                <p class="mb-4">Jika Anda melihat kata <span style="color: green; font-size: 1.5rem; font-weight: bold;">MERAH</span>, jawaban yang benar adalah menekan tombol <strong>G</strong> untuk HIJAU.</p>
+                <p class="text-center mt-8">Tekan tombol apa saja untuk memulai.</p>
+            </div>
+        `,
+      post_trial_gap: 1500, // A 1.5 second gap after instructions
+    };
+    timeline.push(instructions);
+
+    // Define the fixation cross
+    const fixation = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: '<div class="fixation-cross">+</div>',
+      choices: "NO_KEYS",
+      trial_duration: () =>
+        jsPsych.randomization.sampleWithoutReplacement(
+          [500, 750, 1000, 1250],
+          1
+        )[0],
+      data: {
+        task: "fixation",
+      },
+    };
+
+    // Define trial stimuli. Text is now in Indonesian to match instructions.
+    // Using hex for yellow for better visibility on white background.
+    const stroop_variables = [
+      {
+        text: "MERAH",
+        color: "red",
+        condition: "congruent",
+        correct_response: "r",
+      },
+      {
+        text: "HIJAU",
+        color: "green",
+        condition: "congruent",
+        correct_response: "g",
+      },
+      {
+        text: "BIRU",
+        color: "blue",
+        condition: "congruent",
+        correct_response: "b",
+      },
+      {
+        text: "KUNING",
+        color: "#FBBF24",
+        condition: "congruent",
+        correct_response: "y",
+      },
+      {
+        text: "MERAH",
+        color: "green",
+        condition: "incongruent",
+        correct_response: "g",
+      },
+      {
+        text: "MERAH",
+        color: "blue",
+        condition: "incongruent",
+        correct_response: "b",
+      },
+      {
+        text: "MERAH",
+        color: "#FBBF24",
+        condition: "incongruent",
+        correct_response: "y",
+      },
+      {
+        text: "HIJAU",
+        color: "red",
+        condition: "incongruent",
+        correct_response: "r",
+      },
+      {
+        text: "HIJAU",
+        color: "blue",
+        condition: "incongruent",
+        correct_response: "b",
+      },
+      {
+        text: "HIJAU",
+        color: "#FBBF24",
+        condition: "incongruent",
+        correct_response: "y",
+      },
+      {
+        text: "BIRU",
+        color: "red",
+        condition: "incongruent",
+        correct_response: "r",
+      },
+      {
+        text: "BIRU",
+        color: "green",
+        condition: "incongruent",
+        correct_response: "g",
+      },
+      {
+        text: "BIRU",
+        color: "#FBBF24",
+        condition: "incongruent",
+        correct_response: "y",
+      },
+      {
+        text: "KUNING",
+        color: "red",
+        condition: "incongruent",
+        correct_response: "r",
+      },
+      {
+        text: "KUNING",
+        color: "green",
+        condition: "incongruent",
+        correct_response: "g",
+      },
+      {
+        text: "KUNING",
+        color: "blue",
+        condition: "incongruent",
+        correct_response: "b",
+      },
+    ];
+
+    // Define the main test trial
+    const test = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: () => {
+        const color = jsPsych.timelineVariable("color");
+        const text = jsPsych.timelineVariable("text");
+        return `<p class="stroop-stimulus" style="color:${color};">${text}</p>`;
+      },
+      choices: ["r", "g", "b", "y"],
+      data: {
+        task: "response",
+        color: jsPsych.timelineVariable("color"),
+        text: jsPsych.timelineVariable("text"),
+        condition: jsPsych.timelineVariable("condition"),
+        correct_response: jsPsych.timelineVariable("correct_response"),
+      },
+      on_finish: function (data) {
+        data.correct = jsPsych.pluginAPI.compareKeys(
+          data.response,
+          data.correct_response
+        );
+      },
+    };
+
+    // Define the full test procedure with repetitions
+    const test_procedure = {
+      timeline: [fixation, test],
+      timeline_variables: stroop_variables,
+      randomize_order: true,
+      repetitions: 3, // Repeat the set of variables 3 times for more data
+    };
+    timeline.push(test_procedure);
+
+    // Define the structured debrief/summary block
+    const debrief_block = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        // Filter trials for each condition
+        const congruent_trials = jsPsych.data
+          .get()
+          .filter({ condition: "congruent", task: "response" });
+        const incongruent_trials = jsPsych.data
+          .get()
+          .filter({ condition: "incongruent", task: "response" });
+
+        // Calculate accuracy for each condition
+        const congruent_accuracy = Math.round(
+          (congruent_trials.filter({ correct: true }).count() /
+            congruent_trials.count()) *
+            100
+        );
+        const incongruent_accuracy = Math.round(
+          (incongruent_trials.filter({ correct: true }).count() /
+            incongruent_trials.count()) *
+            100
+        );
+
+        // Calculate average reaction time for correct responses in each condition
+        const congruent_rt = Math.round(
+          congruent_trials.filter({ correct: true }).select("rt").mean()
+        );
+        const incongruent_rt = Math.round(
+          incongruent_trials.filter({ correct: true }).select("rt").mean()
+        );
+
+        // The classic Stroop Effect: RT should be higher for incongruent trials
+        const stroop_effect = incongruent_rt - congruent_rt;
+
+        return `
+                <div class="max-w-2xl text-left bg-white p-8 rounded-lg shadow-md">
+                    <h2 class="text-2xl font-bold text-center mb-6">Ringkasan Hasil</h2>
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr>
+                                <th class="border-b-2 p-2 font-semibold">Kondisi</th>
+                                <th class="border-b-2 p-2 font-semibold text-center">Rata-rata Waktu Reaksi</th>
+                                <th class="border-b-2 p-2 font-semibold text-center">Akurasi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b">
+                                <td class="p-2">Kongruen (e.g., kata MERAH berwarna merah)</td>
+                                <td class="p-2 text-center">${congruent_rt} ms</td>
+                                <td class="p-2 text-center">${congruent_accuracy}%</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2">Inkongruen (e.g., kata MERAH berwarna hijau)</td>
+                                <td class="p-2 text-center">${incongruent_rt} ms</td>
+                                <td class="p-2 text-center">${incongruent_accuracy}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg text-center">
+                        <p class="font-bold text-blue-800">Efek Stroop Anda: ${stroop_effect} ms</p>
+                        <p class="text-sm text-blue-700">(Perbedaan waktu reaksi antara kondisi inkongruen dan kongruen)</p>
+                    </div>
+                    <p class="text-center mt-8">Tekan tombol apa saja untuk melihat data lengkap dan menyelesaikan percobaan. Terima kasih!</p>
+                </div>
+            `;
+      },
+    };
+    timeline.push(debrief_block);
+
+    // Start the experiment
+    jsPsych.run(timeline);
+  </script>
+</html>
