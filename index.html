@@ -3,17 +3,17 @@
   <head>
     <title>Stroop Task Experiment</title>
 
-    <!-- Load jsPsych library from CDN -->
     <script src="https://unpkg.com/jspsych@7.3.4"></script>
     <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.3"></script>
     <link
       href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css"
       rel="stylesheet"
       type="text/css"
     />
-
-    <!-- Load Tailwind CSS for styling the results page -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
     <style>
       /* Custom styles for the experiment */
@@ -46,48 +46,136 @@
   <script>
     // Initialize jsPsych
     const jsPsych = initJsPsych({
-      // on_finish callback is now used to display a structured data table
+      // KODE on_finish YANG SUDAH DIPERBARUI
       on_finish: function () {
         // Clear the display
         document.body.innerHTML = "";
+        // Menambahkan background abu-abu terang ke seluruh halaman
+        document.body.className = "bg-slate-100";
 
         // Get all data as an array of objects
         const results = jsPsych.data.get().trials;
 
+        const participantName =
+          jsPsych.data.getLastTrialData().values()[0].participant_name ||
+          "Tidak disebutkan";
+
         // Create a container for the final results page
         const container = document.createElement("div");
         container.className =
-          "container mx-auto p-4 sm:p-8 bg-white rounded-xl shadow-lg mt-10";
+          "container mx-auto p-4 sm:p-8 bg-white rounded-xl shadow-lg my-10 max-w-7xl";
         document.body.appendChild(container);
 
-        // Add a title
-        const title = document.createElement("h1");
-        title.className = "text-3xl font-bold text-gray-800 mb-6 text-center";
-        title.textContent = "Hasil Eksperimen Lengkap";
-        container.appendChild(title);
+        // Add participant info and title
+        const headerDiv = document.createElement("div");
+        // Menambahkan border-b (garis bawah) dan padding-b (ruang di bawah)
+        headerDiv.className = "mb-8 text-center border-b pb-4";
+        headerDiv.innerHTML = `
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">Hasil Eksperimen Lengkap</h1>
+          <p class="text-lg text-gray-600">Peserta: <span class="font-semibold text-blue-600">${participantName}</span></p>
+          <p class="text-sm text-gray-500">${new Date().toLocaleDateString(
+            "id-ID"
+          )} ${new Date().toLocaleTimeString("id-ID")}</p>
+        `;
+        container.appendChild(headerDiv);
+
+        // Add summary statistics before the table
+        const congruent_trials = jsPsych.data
+          .get()
+          .filter({ condition: "congruent", task: "response" });
+        const incongruent_trials = jsPsych.data
+          .get()
+          .filter({ condition: "incongruent", task: "response" });
+
+        const congruent_accuracy = Math.round(
+          (congruent_trials.filter({ correct: true }).count() /
+            congruent_trials.count()) *
+            100
+        );
+        const incongruent_accuracy = Math.round(
+          (incongruent_trials.filter({ correct: true }).count() /
+            incongruent_trials.count()) *
+            100
+        );
+
+        const congruent_rt = Math.round(
+          congruent_trials.filter({ correct: true }).select("rt").mean()
+        );
+        const incongruent_rt = Math.round(
+          incongruent_trials.filter({ correct: true }).select("rt").mean()
+        );
+
+        const stroop_effect = incongruent_rt - congruent_rt;
+
+        // Summary section
+        const summaryDiv = document.createElement("div");
+        summaryDiv.className =
+          "mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg";
+        summaryDiv.innerHTML = `
+          <h2 class="text-xl font-bold mb-4 text-center">Ringkasan Hasil</h2>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+              <h3 class="font-semibold text-green-700 text-sm sm:text-base">Kondisi Kongruen</h3>
+              <p class="text-sm sm:text-base">Rata-rata RT: <span class="font-bold">${congruent_rt} ms</span></p>
+              <p class="text-sm sm:text-base">Akurasi: <span class="font-bold">${congruent_accuracy}%</span></p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+              <h3 class="font-semibold text-red-700 text-sm sm:text-base">Kondisi Inkongruen</h3>
+              <p class="text-sm sm:text-base">Rata-rata RT: <span class="font-bold">${incongruent_rt} ms</span></p>
+              <p class="text-sm sm:text-base">Akurasi: <span class="font-bold">${incongruent_accuracy}%</span></p>
+            </div>
+          </div>
+          <div class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg text-center">
+            <p class="font-bold text-yellow-800 text-sm sm:text-base">🧠 Efek Stroop: ${stroop_effect} ms</p>
+            <p class="text-xs sm:text-sm text-yellow-700 mt-1">Semakin besar angka, semakin kuat efek Stroop Anda!</p>
+          </div>
+        `;
+        container.appendChild(summaryDiv);
+
+        // Add download button
+        const downloadDiv = document.createElement("div");
+        downloadDiv.className = "mb-6 text-center";
+        const downloadBtn = document.createElement("button");
+        downloadBtn.className =
+          "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105 text-sm sm:text-base";
+        downloadBtn.textContent = "📄 Download Hasil sebagai PDF";
+        downloadBtn.onclick = generatePDF;
+        downloadDiv.appendChild(downloadBtn);
+        container.appendChild(downloadDiv);
+
+        // --- STYLING TABEL YANG LEBIH BAIK ---
+
+        // Create responsive table container
+        const tableContainer = document.createElement("div");
+        tableContainer.className = "overflow-x-auto shadow-md rounded-lg";
 
         // Create the table element
         const table = document.createElement("table");
         table.className = "min-w-full divide-y divide-gray-200";
+        table.id = "results-table";
 
         // Create table header
         const thead = document.createElement("thead");
-        thead.className = "bg-gray-50";
+        thead.className = "bg-gray-50"; // Latar header yang lebih simpel
         const headerRow = document.createElement("tr");
         const headers = [
-          "Jenis Trial",
+          "Trial",
           "Kondisi",
-          "Teks Stimulus",
-          "Warna Stimulus",
-          "Tombol Respon",
-          "Benar/Salah",
-          "Waktu Reaksi (ms)",
+          "Teks",
+          "Warna Tinta",
+          "Respon Anda",
+          "Status",
+          "RT (ms)",
         ];
-        headers.forEach((headerText) => {
+        headers.forEach((headerText, index) => {
           const th = document.createElement("th");
           th.scope = "col";
           th.className =
-            "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
+            "px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider";
+          // Sembunyikan kolom yang kurang penting di layar kecil
+          if (index === 1 || index === 2) {
+            th.className += " hidden sm:table-cell";
+          }
           th.textContent = headerText;
           headerRow.appendChild(th);
         });
@@ -98,58 +186,237 @@
         const tbody = document.createElement("tbody");
         tbody.className = "bg-white divide-y divide-gray-200";
 
+        let trialCount = 1;
         results.forEach((trial) => {
-          // We only want to show rows with actual response data
           if (trial.task === "response") {
             const row = document.createElement("tr");
 
-            // Define the data for each cell
+            // Mengganti nama warna dari Inggris ke Indonesia
+            const colorMap = {
+              red: "Merah",
+              green: "Hijau",
+              blue: "Biru",
+              "#FBBF24": "Kuning",
+            };
+
+            // Memberi warna pada ikon status
+            const statusIcon = trial.correct
+              ? `<span class="text-green-600 font-bold">✅</span>`
+              : `<span class="text-red-600 font-bold">❌</span>`;
+
             const cells = [
-              trial.task,
+              trialCount,
               trial.condition,
               trial.text,
-              trial.color,
-              trial.response,
-              trial.correct ? "Benar" : "Salah",
+              colorMap[trial.color] || trial.color,
+              trial.response ? trial.response.toUpperCase() : "N/A",
+              statusIcon,
               trial.rt ? Math.round(trial.rt) : "N/A",
             ];
 
-            cells.forEach((cellData) => {
+            cells.forEach((cellData, index) => {
               const td = document.createElement("td");
               td.className =
-                "px-6 py-4 whitespace-nowrap text-sm text-gray-700";
-              td.textContent = cellData;
+                "px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-700";
+
+              // Styling spesifik untuk kolom tertentu
+              if (index === 1 || index === 2) {
+                // Kondisi & Teks
+                td.className += " hidden sm:table-cell";
+              } else if (index === 0 || index === 6) {
+                // Trial & RT
+                td.className += " font-medium text-gray-900";
+              } else if (index === 5) {
+                // Status
+                td.className += " text-center text-lg";
+              }
+
+              td.innerHTML = cellData; // Gunakan innerHTML untuk merender span ikon
               row.appendChild(td);
             });
 
-            // Add color coding for correctness
-            if (trial.correct === false) {
-              row.classList.add("bg-red-50");
+            // Menambahkan garis vertikal berwarna di sisi kiri baris
+            if (trial.correct) {
+              row.classList.add("border-l-4", "border-green-400");
             } else {
-              row.classList.add("bg-green-50");
+              row.classList.add("border-l-4", "border-red-400");
             }
 
             tbody.appendChild(row);
+            trialCount++;
           }
         });
 
         table.appendChild(tbody);
-        container.appendChild(table);
+        tableContainer.appendChild(table);
+        container.appendChild(tableContainer);
+
+        // Add mobile info
+        const mobileInfo = document.createElement("div");
+        mobileInfo.className =
+          "mt-4 p-3 bg-blue-50 rounded-lg text-center sm:hidden";
+        mobileInfo.innerHTML = `
+          <p class="text-xs text-blue-700">
+            💡 <strong>Tips:</strong> Putar layar atau gunakan desktop untuk melihat semua kolom tabel.
+          </p>
+        `;
+        container.appendChild(mobileInfo);
+
+        // PDF generation function (tidak ada perubahan di sini)
+        function generatePDF() {
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF();
+
+          // Add title
+          doc.setFontSize(18);
+          doc.setFont(undefined, "bold");
+          doc.text("Hasil Eksperimen Stroop Task", 105, 20, {
+            align: "center",
+          });
+
+          // Add participant name
+          doc.setFontSize(12);
+          doc.setFont(undefined, "bold");
+          doc.text(`Peserta: ${participantName}`, 105, 30, { align: "center" });
+
+          // Add timestamp
+          doc.setFontSize(10);
+          doc.setFont(undefined, "normal");
+          const now = new Date();
+          doc.text(
+            `Tanggal: ${now.toLocaleDateString(
+              "id-ID"
+            )} ${now.toLocaleTimeString("id-ID")}`,
+            105,
+            40,
+            { align: "center" }
+          );
+
+          // Add summary statistics
+          doc.setFontSize(14);
+          doc.setFont(undefined, "bold");
+          doc.text("Ringkasan Hasil:", 20, 55);
+
+          doc.setFontSize(11);
+          doc.setFont(undefined, "normal");
+          doc.text(
+            `Kondisi Kongruen - Rata-rata RT: ${congruent_rt} ms, Akurasi: ${congruent_accuracy}%`,
+            20,
+            65
+          );
+          doc.text(
+            `Kondisi Inkongruen - Rata-rata RT: ${incongruent_rt} ms, Akurasi: ${incongruent_accuracy}%`,
+            20,
+            75
+          );
+
+          doc.setFont(undefined, "bold");
+          doc.text(`Efek Stroop: ${stroop_effect} ms`, 20, 85);
+
+          // Prepare table data
+          const tableData = [];
+          results.forEach((trial, index) => {
+            if (trial.task === "response") {
+              tableData.push([
+                tableData.length + 1,
+                trial.condition,
+                trial.text,
+                trial.color === "#FBBF24" ? "kuning" : trial.color,
+                trial.response.toUpperCase(),
+                trial.correct ? "Benar" : "Salah",
+                trial.rt ? Math.round(trial.rt) : "N/A",
+              ]);
+            }
+          });
+
+          // Add table
+          doc.autoTable({
+            head: [
+              [
+                "Trial",
+                "Kondisi",
+                "Teks",
+                "Warna",
+                "Respon",
+                "Benar/Salah",
+                "RT (ms)",
+              ],
+            ],
+            body: tableData,
+            startY: 95,
+            styles: {
+              fontSize: 8,
+              cellPadding: 2,
+            },
+            headStyles: {
+              fillColor: [66, 139, 202],
+              textColor: 255,
+              fontStyle: "bold",
+            },
+            alternateRowStyles: {
+              fillColor: [245, 245, 245],
+            },
+            columnStyles: {
+              0: { halign: "center", cellWidth: 15 },
+              1: { cellWidth: 25 },
+              2: { cellWidth: 25 },
+              3: { cellWidth: 25 },
+              4: { halign: "center", cellWidth: 20 },
+              5: { halign: "center", cellWidth: 25 },
+              6: { halign: "center", cellWidth: 25 },
+            },
+          });
+
+          // Save the PDF
+          const cleanName = participantName.replace(/[^a-zA-Z0-9]/g, "_");
+          const filename = `Stroop_${cleanName}_${now.getFullYear()}-${(
+            now.getMonth() + 1
+          )
+            .toString()
+            .padStart(2, "0")}-${now
+            .getDate()
+            .toString()
+            .padStart(2, "0")}_${now
+            .getHours()
+            .toString()
+            .padStart(2, "0")}-${now
+            .getMinutes()
+            .toString()
+            .padStart(2, "0")}.pdf`;
+          doc.save(filename);
+        }
       },
     });
 
     // Create the main experiment timeline
     let timeline = [];
 
-    // Define welcome message trial
+    // Use jsPsychHtmlButtonResponse for the welcome screen
     const welcome = {
-      type: jsPsychHtmlKeyboardResponse,
+      type: jsPsychHtmlButtonResponse,
       stimulus: `
-            <div class="max-w-2xl text-center">
-                <h1 class="text-3xl font-bold mb-4">Selamat Datang di Eksperimen Stroop</h1>
-                <p>Tekan tombol apa saja untuk memulai.</p>
-            </div>
-        `,
+        <div class="max-w-2xl text-center">
+          <h1 class="text-3xl font-bold mb-6">Selamat Datang di Eksperimen Stroop</h1>
+          <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+            <label for="participant-name" class="block text-left font-semibold mb-2">Masukkan nama Anda:</label>
+            <input type="text" id="participant-name" 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                   placeholder="Nama lengkap..." autofocus>
+          </div>
+          <p class="text-gray-600">Masukkan nama Anda di atas, kemudian klik tombol di bawah untuk melanjutkan.</p>
+        </div>
+      `,
+      choices: ["Lanjutkan"],
+      on_load: function () {
+        // intercept tombol agar bisa baca input dulu
+        document.querySelector(".jspsych-btn").addEventListener("click", () => {
+          const nameInput = document.getElementById("participant-name");
+          const participantName = nameInput ? nameInput.value.trim() : "";
+          jsPsych.data.addProperties({
+            participant_name: participantName || "Tidak disebutkan",
+          });
+        });
+      },
     };
     timeline.push(welcome);
 
@@ -157,22 +424,22 @@
     const instructions = {
       type: jsPsychHtmlKeyboardResponse,
       stimulus: `
-            <div class="max-w-2xl text-left leading-relaxed">
-                <p class="font-bold text-xl mb-4">Instruksi:</p>
-                <p class="mb-3">Dalam percobaan ini, sebuah kata akan muncul di tengah layar.</p>
-                <p class="mb-3">Tugas Anda adalah menyebutkan <strong>WARNA TINTA</strong> kata tersebut, bukan kata yang tertulis. Responlah secepat dan seakurat mungkin.</p>
-                <p class="mb-4">Gunakan tombol berikut untuk merespon:</p>
-                <ul class="list-disc list-inside mb-6 space-y-2">
-                    <li>Tekan <strong style="color: red;">R</strong> untuk warna <span style="color: red; font-weight: bold;">MERAH</span></li>
-                    <li>Tekan <strong style="color: green;">G</strong> untuk warna <span style="color: green; font-weight: bold;">HIJAU</span></li>
-                    <li>Tekan <strong style="color: blue;">B</strong> untuk warna <span style="color: blue; font-weight: bold;">BIRU</span></li>
-                    <li>Tekan <strong style="color: #FBBF24;">Y</strong> untuk warna <span style="color: #FBBF24; font-weight: bold;">KUNING</span></li>
-                </ul>
-                <p class="font-bold mb-2">Contoh:</p>
-                <p class="mb-4">Jika Anda melihat kata <span style="color: green; font-size: 1.5rem; font-weight: bold;">MERAH</span>, jawaban yang benar adalah menekan tombol <strong>G</strong> untuk HIJAU.</p>
-                <p class="text-center mt-8">Tekan tombol apa saja untuk memulai.</p>
-            </div>
-        `,
+        <div class="max-w-2xl text-left leading-relaxed">
+          <p class="font-bold text-xl mb-4">Instruksi:</p>
+          <p class="mb-3">Dalam percobaan ini, sebuah kata akan muncul di tengah layar.</p>
+          <p class="mb-3">Tugas Anda adalah menyebutkan <strong>WARNA TINTA</strong> kata tersebut, bukan kata yang tertulis. Responlah secepat dan seakurat mungkin.</p>
+          <p class="mb-4">Gunakan tombol berikut untuk merespon:</p>
+          <ul class="list-disc list-inside mb-6 space-y-2">
+            <li>Tekan <strong style="color: red;">R</strong> untuk warna <span style="color: red; font-weight: bold;">MERAH</span></li>
+            <li>Tekan <strong style="color: green;">G</strong> untuk warna <span style="color: green; font-weight: bold;">HIJAU</span></li>
+            <li>Tekan <strong style="color: blue;">B</strong> untuk warna <span style="color: blue; font-weight: bold;">BIRU</span></li>
+            <li>Tekan <strong style="color: #FBBF24;">Y</strong> untuk warna <span style="color: #FBBF24; font-weight: bold;">KUNING</span></li>
+          </ul>
+          <p class="font-bold mb-2">Contoh:</p>
+          <p class="mb-4">Jika Anda melihat kata <span style="color: green; font-size: 1.5rem; font-weight: bold;">MERAH</span>, jawaban yang benar adalah menekan tombol <strong>G</strong> untuk HIJAU.</p>
+          <p class="text-center mt-8">Tekan tombol apa saja untuk memulai.</p>
+        </div>
+      `,
       post_trial_gap: 1500, // A 1.5 second gap after instructions
     };
     timeline.push(instructions);
@@ -192,8 +459,7 @@
       },
     };
 
-    // Define trial stimuli. Text is now in Indonesian to match instructions.
-    // Using hex for yellow for better visibility on white background.
+    // Define trial stimuli
     const stroop_variables = [
       {
         text: "MERAH",
@@ -279,18 +545,6 @@
         condition: "incongruent",
         correct_response: "r",
       },
-      {
-        text: "KUNING",
-        color: "green",
-        condition: "incongruent",
-        correct_response: "g",
-      },
-      {
-        text: "KUNING",
-        color: "blue",
-        condition: "incongruent",
-        correct_response: "b",
-      },
     ];
 
     // Define the main test trial
@@ -330,15 +584,12 @@
     const debrief_block = {
       type: jsPsychHtmlKeyboardResponse,
       stimulus: function () {
-        // Filter trials for each condition
         const congruent_trials = jsPsych.data
           .get()
           .filter({ condition: "congruent", task: "response" });
         const incongruent_trials = jsPsych.data
           .get()
           .filter({ condition: "incongruent", task: "response" });
-
-        // Calculate accuracy for each condition
         const congruent_accuracy = Math.round(
           (congruent_trials.filter({ correct: true }).count() /
             congruent_trials.count()) *
@@ -349,49 +600,45 @@
             incongruent_trials.count()) *
             100
         );
-
-        // Calculate average reaction time for correct responses in each condition
         const congruent_rt = Math.round(
           congruent_trials.filter({ correct: true }).select("rt").mean()
         );
         const incongruent_rt = Math.round(
           incongruent_trials.filter({ correct: true }).select("rt").mean()
         );
-
-        // The classic Stroop Effect: RT should be higher for incongruent trials
         const stroop_effect = incongruent_rt - congruent_rt;
 
         return `
-                <div class="max-w-2xl text-left bg-white p-8 rounded-lg shadow-md">
-                    <h2 class="text-2xl font-bold text-center mb-6">Ringkasan Hasil</h2>
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr>
-                                <th class="border-b-2 p-2 font-semibold">Kondisi</th>
-                                <th class="border-b-2 p-2 font-semibold text-center">Rata-rata Waktu Reaksi</th>
-                                <th class="border-b-2 p-2 font-semibold text-center">Akurasi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="border-b">
-                                <td class="p-2">Kongruen (e.g., kata MERAH berwarna merah)</td>
-                                <td class="p-2 text-center">${congruent_rt} ms</td>
-                                <td class="p-2 text-center">${congruent_accuracy}%</td>
-                            </tr>
-                            <tr>
-                                <td class="p-2">Inkongruen (e.g., kata MERAH berwarna hijau)</td>
-                                <td class="p-2 text-center">${incongruent_rt} ms</td>
-                                <td class="p-2 text-center">${incongruent_accuracy}%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div class="mt-6 p-4 bg-blue-50 rounded-lg text-center">
-                        <p class="font-bold text-blue-800">Efek Stroop Anda: ${stroop_effect} ms</p>
-                        <p class="text-sm text-blue-700">(Perbedaan waktu reaksi antara kondisi inkongruen dan kongruen)</p>
-                    </div>
-                    <p class="text-center mt-8">Tekan tombol apa saja untuk melihat data lengkap dan menyelesaikan percobaan. Terima kasih!</p>
-                </div>
-            `;
+          <div class="max-w-2xl text-left bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6">Ringkasan Hasil</h2>
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr>
+                  <th class="border-b-2 p-2 font-semibold">Kondisi</th>
+                  <th class="border-b-2 p-2 font-semibold text-center">Rata-rata Waktu Reaksi</th>
+                  <th class="border-b-2 p-2 font-semibold text-center">Akurasi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b">
+                  <td class="p-2">Kongruen (e.g., kata MERAH berwarna merah)</td>
+                  <td class="p-2 text-center">${congruent_rt} ms</td>
+                  <td class="p-2 text-center">${congruent_accuracy}%</td>
+                </tr>
+                <tr>
+                  <td class="p-2">Inkongruen (e.g., kata MERAH berwarna hijau)</td>
+                  <td class="p-2 text-center">${incongruent_rt} ms</td>
+                  <td class="p-2 text-center">${incongruent_accuracy}%</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg text-center">
+              <p class="font-bold text-blue-800">Efek Stroop Anda: ${stroop_effect} ms</p>
+              <p class="text-sm text-blue-700">(Perbedaan waktu reaksi antara kondisi inkongruen dan kongruen)</p>
+            </div>
+            <p class="text-center mt-8">Tekan tombol apa saja untuk melihat data lengkap dan menyelesaikan percobaan. Terima kasih!</p>
+          </div>
+        `;
       },
     };
     timeline.push(debrief_block);
